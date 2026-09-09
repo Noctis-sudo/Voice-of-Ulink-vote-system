@@ -1,0 +1,9 @@
+services:
+  - type: web
+    name: voice-of-ulink-vote-api
+    env: node
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: PUBLIC_APP_URL
+        sync: false

@@ -40,12 +40,15 @@
       <ul id="sessions"></ul>
     </div>
 
+    <script src="config.js"></script>
     <script>
+      const API_BASE = (window.VOTE_API_BASE || '').replace(/\/$/, '');
+      const api = (endpoint, options) => fetch(API_BASE + endpoint, options);
       let current = null;
       let autoTimer = null;
 
       async function fetchSessions() {
-        const r = await fetch('/api/sessions');
+        const r = await api('/api/sessions');
         const j = await r.json();
         const ul = document.getElementById('sessions');
         ul.innerHTML = '';
@@ -59,7 +62,7 @@
       async function createSession() {
         const name = document.getElementById('name').value.trim();
         if(!name) return alert('请输入姓名');
-        const res = await fetch('/api/sessions', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({name})});
+        const res = await api('/api/sessions', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({name})});
         const j = await res.json();
         current = j.session;
         displayCurrent(j);
@@ -81,7 +84,7 @@
 
       async function invalidate() {
         if(!current || !current.id) return alert('无当前会话');
-        await fetch(`/api/sessions/${current.id}/invalidate`, {method:'POST'});
+        await api(`/api/sessions/${current.id}/invalidate`, {method:'POST'});
         document.getElementById('invalidate').disabled = true;
         document.getElementById('reset').disabled = false;
         document.getElementById('status').textContent = '当前会话已关闭，可点击“重置当前投票”重新开始';
@@ -90,7 +93,7 @@
 
       async function reset() {
         if(!current || !current.id) return alert('无当前会话');
-        await fetch(`/api/sessions/${current.id}/reset`, {method:'POST'});
+        await api(`/api/sessions/${current.id}/reset`, {method:'POST'});
         fetchSessions();
       }
 

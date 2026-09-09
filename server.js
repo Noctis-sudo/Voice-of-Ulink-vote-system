@@ -6,8 +6,16 @@ const { randomUUID } = require('crypto');
 const port = Number(process.env.PORT || 3000);
 const root = __dirname;
 const sessions = new Map();
+const publicAppUrl = (process.env.PUBLIC_APP_URL || '').replace(/\/$/, '');
+
+function setCors(res) {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+}
 
 function sendJson(res, status, data) {
+  setCors(res);
   res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8' });
   res.end(JSON.stringify(data));
 }
@@ -47,6 +55,12 @@ const server = http.createServer(async (req, res) => {
   const parts = url.pathname.split('/').filter(Boolean);
 
   try {
+    if (req.method === 'OPTIONS') {
+      setCors(res);
+      res.writeHead(204);
+      return res.end();
+    }
+
     if (req.method === 'GET' && url.pathname === '/api/sessions') {
       return sendJson(res, 200, { sessions: [...sessions.values()].map(sessionView) });
     }
@@ -57,7 +71,7 @@ const server = http.createServer(async (req, res) => {
       for (const session of sessions.values()) session.active = false;
       const session = { id: randomUUID(), name: String(body.name).trim(), votes: 0, active: true, devices: new Set() };
       sessions.set(session.id, session);
-      const url = `${urlBase(req)}/vote.html?session=${encodeURIComponent(session.id)}`;
+      const url = `${publicAppUrl || urlBase(req)}/vote.html?session=${encodeURIComponent(session.id)}`;
       return sendJson(res, 201, { session: sessionView(session), url });
     }
 
