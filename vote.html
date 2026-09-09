@@ -45,8 +45,12 @@
         return id;
       }
 
+      function getSessionId() {
+        return new URLSearchParams(location.search).get('session') || getSessionIdFromPath();
+      }
+
       async function load() {
-        const sessionId = getSessionIdFromPath();
+        const sessionId = getSessionId();
         const r = await fetch('/api/session/' + sessionId);
         if (r.status !== 200) {
           document.getElementById('title').textContent = '会话不存在或已失效';
@@ -60,8 +64,9 @@
       }
 
       document.getElementById('voteBtn').addEventListener('click', async ()=>{
-        const sessionId = getSessionIdFromPath();
-        const res = await fetch('/api/vote', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({sessionId})});
+        const sessionId = getSessionId();
+        const deviceId = await ensureDeviceId();
+        const res = await fetch('/api/vote', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({sessionId, deviceId})});
         const j = await res.json();
         const result = document.getElementById('result');
         if (res.ok) {

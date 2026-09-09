@@ -1,0 +1,7 @@
+{
+  "name": "voice-of-ulink-vote-system",
+  "private": true,
+  "scripts": {
+    "start": "node server.js"
+  }
+}

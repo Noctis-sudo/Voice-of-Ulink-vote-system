@@ -14,7 +14,7 @@
     <h2>投票后台</h2>
     <div>
       <label>姓名： <input id="name" placeholder="输入参赛者姓名" /></label>
-      <button id="create">生成二维码并开始投票</button>
+      <button id="create">生成投票链接并开始投票</button>
     </div>
     <div style="margin-top:12px">
       <button id="invalidate" disabled>使当前二维码失效</button>
@@ -61,7 +61,7 @@
         if(!name) return alert('请输入姓名');
         const res = await fetch('/api/sessions', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({name})});
         const j = await res.json();
-        current = j.session || { id: j.session?.id };
+        current = j.session;
         displayCurrent(j);
         document.getElementById('invalidate').disabled = false;
         document.getElementById('reset').disabled = false;
@@ -71,15 +71,9 @@
       function displayCurrent(payload) {
         const wrap = document.getElementById('qrwrap');
         wrap.innerHTML = '';
-        if(payload.qr) {
-          const img = document.createElement('img');
-          img.src = payload.qr;
-          img.className = 'qr';
-          wrap.appendChild(img);
-          const a = document.createElement('div');
-          a.innerHTML = `扫码地址： <a href="${payload.url}" target="_blank">${payload.url}</a>`;
-          wrap.appendChild(a);
-        }
+        const a = document.createElement('div');
+        a.innerHTML = `投票地址： <a href="${payload.url}" target="_blank">${payload.url}</a>`;
+        wrap.appendChild(a);
         const cur = document.getElementById('current');
         cur.textContent = payload.session ? `${payload.session.name} (id: ${payload.session.id})` : '无';
         document.getElementById('status').textContent = `投票数：${payload.session?.votes || 0}，状态：${payload.session?.active ? '进行中' : '已关闭'}`;
@@ -90,10 +84,8 @@
         await fetch(`/api/sessions/${current.id}/invalidate`, {method:'POST'});
         document.getElementById('invalidate').disabled = true;
         document.getElementById('reset').disabled = false;
-        current = null;
-        document.getElementById('current').textContent = '无';
-        document.getElementById('qrwrap').innerHTML = '';
-        fetchSessions();
+        document.getElementById('status').textContent = '当前会话已关闭，可点击“重置当前投票”重新开始';
+        await fetchSessions();
       }
 
       async function reset() {
