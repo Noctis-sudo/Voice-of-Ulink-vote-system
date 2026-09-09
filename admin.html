@@ -1,0 +1,126 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>投票后台 Admin</title>
+    <style>
+      body { font-family: Arial, sans-serif; padding: 20px }
+      input, button { padding: 8px; margin: 4px }
+      img.qr { width: 260px; height: 260px; border: 1px solid #ddd }
+    </style>
+  </head>
+  <body>
+    <h2>投票后台</h2>
+    <div>
+      <label>姓名： <input id="name" placeholder="输入参赛者姓名" /></label>
+      <button id="create">生成二维码并开始投票</button>
+    </div>
+    <div style="margin-top:12px">
+      <button id="invalidate" disabled>使当前二维码失效</button>
+      <button id="reset" disabled>重置当前投票并开始新一轮</button>
+    </div>
+
+    <div style="margin-top:20px">
+      <h3>当前会话</h3>
+      <div id="current">无</div>
+      <div id="qrwrap" style="margin-top:8px"></div>
+      <div id="status" style="margin-top:8px"></div>
+    </div>
+
+    <div style="margin-top:20px">
+      <h3>自动生成功能</h3>
+      <label>间隔秒数： <input id="intervalSec" type="number" value="60" style="width:80px"/></label>
+      <button id="startAuto">开始自动生成</button>
+      <button id="stopAuto" disabled>停止</button>
+    </div>
+
+    <div style="margin-top:20px">
+      <h3>历史会话</h3>
+      <ul id="sessions"></ul>
+    </div>
+
+    <script>
+      let current = null;
+      let autoTimer = null;
+
+      async function fetchSessions() {
+        const r = await fetch('/api/sessions');
+        const j = await r.json();
+        const ul = document.getElementById('sessions');
+        ul.innerHTML = '';
+        j.sessions.forEach(s=>{
+          const li = document.createElement('li');
+          li.textContent = `${s.name} — votes: ${s.votes} — ${s.active? 'active':'closed'}`;
+          ul.appendChild(li);
+        });
+      }
+
+      async function createSession() {
+        const name = document.getElementById('name').value.trim();
+        if(!name) return alert('请输入姓名');
+        const res = await fetch('/api/sessions', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({name})});
+        const j = await res.json();
+        current = j.session || { id: j.session?.id };
+        displayCurrent(j);
+        document.getElementById('invalidate').disabled = false;
+        document.getElementById('reset').disabled = false;
+        fetchSessions();
+      }
+
+      function displayCurrent(payload) {
+        const wrap = document.getElementById('qrwrap');
+        wrap.innerHTML = '';
+        if(payload.qr) {
+          const img = document.createElement('img');
+          img.src = payload.qr;
+          img.className = 'qr';
+          wrap.appendChild(img);
+          const a = document.createElement('div');
+          a.innerHTML = `扫码地址： <a href="${payload.url}" target="_blank">${payload.url}</a>`;
+          wrap.appendChild(a);
+        }
+        const cur = document.getElementById('current');
+        cur.textContent = payload.session ? `${payload.session.name} (id: ${payload.session.id})` : '无';
+        document.getElementById('status').textContent = `投票数：${payload.session?.votes || 0}，状态：${payload.session?.active ? '进行中' : '已关闭'}`;
+      }
+
+      async function invalidate() {
+        if(!current || !current.id) return alert('无当前会话');
+        await fetch(`/api/sessions/${current.id}/invalidate`, {method:'POST'});
+        document.getElementById('invalidate').disabled = true;
+        document.getElementById('reset').disabled = false;
+        current = null;
+        document.getElementById('current').textContent = '无';
+        document.getElementById('qrwrap').innerHTML = '';
+        fetchSessions();
+      }
+
+      async function reset() {
+        if(!current || !current.id) return alert('无当前会话');
+        await fetch(`/api/sessions/${current.id}/reset`, {method:'POST'});
+        fetchSessions();
+      }
+
+      document.getElementById('create').addEventListener('click', createSession);
+      document.getElementById('invalidate').addEventListener('click', invalidate);
+      document.getElementById('reset').addEventListener('click', reset);
+
+      document.getElementById('startAuto').addEventListener('click', ()=>{
+        const sec = Math.max(5, Number(document.getElementById('intervalSec').value || 60));
+        document.getElementById('startAuto').disabled = true;
+        document.getElementById('stopAuto').disabled = false;
+        autoTimer = setInterval(()=>{ createSession(); }, sec*1000);
+      });
+      document.getElementById('stopAuto').addEventListener('click', ()=>{
+        clearInterval(autoTimer); autoTimer = null;
+        document.getElementById('startAuto').disabled = false;
+        document.getElementById('stopAuto').disabled = true;
+      });
+
+      // poll sessions periodically
+      setInterval(fetchSessions, 5000);
+      fetchSessions();
+    </script>
+  </body>
+</html>

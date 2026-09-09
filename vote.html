@@ -1,0 +1,78 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>投票页面</title>
+    <style>
+      body { font-family: Arial, sans-serif; padding: 20px; text-align:center }
+      button { padding: 12px 18px; font-size:18px }
+    </style>
+  </head>
+  <body>
+    <h2 id="title">正在加载...</h2>
+    <div id="info"></div>
+    <div style="margin-top:20px">
+      <button id="voteBtn">提交投票</button>
+    </div>
+    <div id="result" style="margin-top:20px; font-weight: bold"></div>
+
+    <script>
+      function getSessionIdFromPath() {
+        const parts = location.pathname.split('/');
+        return parts[parts.length-1];
+      }
+
+      function readCookie(name) {
+        const v = document.cookie.match('(^|;)\\s*' + name + '\\s*=\\s*([^;]+)');
+        return v ? v.pop() : '';
+      }
+      function setCookie(name, value, days) {
+        let expires = '';
+        if(days) {
+          const d = new Date(); d.setTime(d.getTime() + days*24*60*60*1000);
+          expires = '; expires=' + d.toUTCString();
+        }
+        document.cookie = name + '=' + value + expires + '; path=/';
+      }
+
+      async function ensureDeviceId() {
+        let id = readCookie('deviceId');
+        if (!id) {
+          id = 'dev-' + Math.random().toString(36).slice(2,12);
+          setCookie('deviceId', id, 365);
+        }
+        return id;
+      }
+
+      async function load() {
+        const sessionId = getSessionIdFromPath();
+        const r = await fetch('/api/session/' + sessionId);
+        if (r.status !== 200) {
+          document.getElementById('title').textContent = '会话不存在或已失效';
+          document.getElementById('voteBtn').disabled = true;
+          return;
+        }
+        const j = await r.json();
+        document.getElementById('title').textContent = `这是 ${j.name} 的投票`;
+        document.getElementById('info').textContent = `当前得票：${j.votes}`;
+        await ensureDeviceId();
+      }
+
+      document.getElementById('voteBtn').addEventListener('click', async ()=>{
+        const sessionId = getSessionIdFromPath();
+        const res = await fetch('/api/vote', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({sessionId})});
+        const j = await res.json();
+        const result = document.getElementById('result');
+        if (res.ok) {
+          result.textContent = j.message || '感谢投票 你现在可以退出了';
+          document.getElementById('voteBtn').disabled = true;
+        } else {
+          result.textContent = j.error || '投票失败';
+        }
+      });
+
+      load();
+    </script>
+  </body>
+</html>
